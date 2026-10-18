@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>학점제 내신 내비게이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!--APP-START-->
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand">
+      <h1>학점제 내신 내비게이터</h1>
+      <p class="sub">Grade-Up Predictor · 5등급제 성적을 9등급제 입결과 비교합니다</p>
+    </div>
+    <div class="top-controls">
+      <div class="seg" role="group" aria-label="전형">
+        <button type="button" id="mode-종합" data-mode="종합">학생부종합</button>
+        <button type="button" id="mode-교과" data-mode="교과">학생부교과</button>
+      </div>
+      <label class="field-select">희망 계열
+        <select id="fieldSelect"></select>
+      </label>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="notice" id="sampleNotice">대학 입결은 <strong>가상의 대학으로 만든 예시 데이터</strong>입니다. 실제 입결로 바꾸려면 <code>js/data.js</code>를 수정하세요. 판정은 참고용 추정치입니다.</p>
+
+  <section class="step" id="step1" aria-labelledby="h-step1">
+    <div class="step-head">
+      <span class="step-no">Step 1</span>
+      <h2 id="h-step1">현재 위치 진단</h2>
+      <p class="step-desc">과목별 5등급, 석차, 수강자 수를 입력하면 9등급제 환산 등급을 바로 계산합니다. 석차가 없으면 원점수·평균·표준편차로 추정합니다.</p>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="toolbar">
+      <button type="button" class="btn" id="addRow">과목 추가</button>
+      <button type="button" class="btn ghost" id="loadSample">예시 성적 불러오기</button>
+      <button type="button" class="btn ghost danger" id="clearAll">모두 지우기</button>
+      <span class="sample-tag" id="sampleTag">예시 성적이 입력되어 있습니다</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="grid subjects">
+        <thead>
+          <tr class="group">
+            <th colspan="5">과목</th>
+            <th colspan="3">석차 (트랙 A)</th>
+            <th colspan="3">원점수 (트랙 B)</th>
+            <th colspan="2">성취도</th>
+            <th colspan="3" class="res">9등급제 환산</th>
+            <th></th>
+          </tr>
+          <tr>
+            <th>학기</th><th>과목명</th><th>교과</th><th>학점</th><th>5등급</th>
+            <th>석차</th><th>동석차</th><th>수강자</th>
+            <th>원점수</th><th>평균</th><th>표준편차</th>
+            <th>등급</th><th title="사회·과학 융합선택, 체육·예술 등 성취도만 기재되는 과목">성취도만</th>
+            <th class="res">상위 %</th><th class="res">환산 등급</th><th class="res">근거</th>
+            <th><span class="sr">삭제</span></th>
+          </tr>
+        </thead>
+        <tbody id="subjectBody"></tbody>
+      </table>
+    </div>
+
+    <div class="related">
+      <div class="related-head">
+        <h3>전공 관련 교과 <span id="relatedField"></span></h3>
+        <button type="button" class="link" id="resetRelated">기본값으로</button>
+      </div>
+      <p class="hint">계열 적합도와 시나리오 B에 쓰입니다. 눌러서 바꿀 수 있습니다.</p>
+      <div class="chips" id="relatedChips"></div>
+    </div>
+  </section>
+
+  <section class="step" id="step2" aria-labelledby="h-step2">
+    <div class="step-head">
+      <span class="step-no">Step 2</span>
+      <h2 id="h-step2">상향 곡선 조작</h2>
+      <p class="step-desc">남은 학기 성적 시나리오를 고르거나 그래프의 점을 끌어 직접 정하세요. 대학 판정이 바로 바뀝니다.</p>
+    </div>
+
+    <div class="seg scen" role="group" aria-label="시나리오" id="scenarioSeg">
+      <button type="button" data-scen="keep">현재 유지</button>
+      <button type="button" data-scen="A">A 안정 상승</button>
+      <button type="button" data-scen="B">B 전공 집중</button>
+      <button type="button" data-scen="custom">직접 조정</button>
+    </div>
+
+    <div class="sim-grid">
+      <div class="chart-card">
+        <svg id="chart" viewBox="0 0 640 300" role="img" aria-label="학기별 9등급제 환산 등급 그래프"></svg>
+        <div class="legend" id="legend"></div>
+        <div class="custom-inputs" id="customInputs"></div>
+      </div>
+
+      <div class="params">
+        <label>A: 학기당 백분위 단축률
+          <span class="unit"><input type="number" id="pRate" min="0" max="50" step="1">%</span>
+        </label>
+        <label>B: 전공 교과 목표 (상위)
+          <span class="unit"><input type="number" id="pTarget" min="0.5" max="50" step="0.5">%</span>
+        </label>
+        <label>남은 학기 학기당 학점
+          <span class="unit"><input type="number" id="pCredits" min="0" step="1" placeholder="자동">학점</span>
+        </label>
+        <label>예상 수강자 수 (목표 석차 계산용)
+          <span class="unit"><input type="number" id="pN" min="1" step="1" placeholder="교과별 평균">명</span>
+        </label>
+        <fieldset>
+          <legend>학년 가중치</legend>
+          <div class="yw">
+            <label>1학년 <input type="number" id="yw1" min="0" step="1"></label>
+            <label>2학년 <input type="number" id="yw2" min="0" step="1"></label>
+            <label>3학년 <input type="number" id="yw3" min="0" step="1"></label>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+
+    <div class="next">
+      <div class="next-head">
+        <h3>학기별 교과 목표</h3>
+        <label class="inline">학기 <select id="targetSem"></select></label>
+      </div>
+      <div class="table-wrap">
+        <table class="grid compact" id="nextTable"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="step" id="step3" aria-labelledby="h-step3">
+    <div class="step-head">
+      <span class="step-no">Step 3</span>
+      <h2 id="h-step3">대학 리스트</h2>
+      <p class="step-desc">예상 최종 내신을 최근 3개년 입결(최근 연도 가중 5:3:2)과 비교합니다. 행을 누르면 목표 역산을 볼 수 있습니다.</p>
+    </div>
+
+    <div class="filters">
+      <div class="chips" id="verdictChips"></div>
+      <label class="inline">계열 <select id="fieldFilter"></select></label>
+      <label class="inline">검색 <input type="search" id="searchBox" placeholder="대학·학과"></label>
+      <label class="inline">상향 범위 70%컷 +<input type="number" id="pMargin" min="0" max="2" step="0.1">등급</label>
+    </div>
+
+    <div class="detail" id="detail" hidden></div>
+
+    <div class="table-wrap">
+      <table class="grid univ">
+        <thead>
+          <tr>
+            <th>판정</th><th>대학</th><th>학과</th><th>계열</th><th>반영</th>
+            <th class="n">50%컷</th><th class="n">70%컷</th><th class="n">추합컷</th>
+            <th class="n">내 예상</th><th class="n">70%컷 대비</th><th class="n" id="bonusHead">종합 보정</th>
+          </tr>
+        </thead>
+        <tbody id="univBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="method" aria-labelledby="h-method">
+    <h2 id="h-method">계산 방법</h2>
+    <ul>
+      <li><strong>트랙 A:</strong> 상위 % = (중간석차 − 0.5) ÷ 수강자 수 × 100. 중간석차 = 석차 + (동석차 수 − 1) ÷ 2.</li>
+      <li><strong>트랙 B:</strong> Z = (원점수 − 평균) ÷ 표준편차로 정규분포 상위 비율을 구하고, 입력한 5등급 구간(10/34/66/90%) 안으로 제한합니다.</li>
+      <li><strong>환산 등급:</strong> 상위 %를 9등급제 구간(4/11/23/40/60/77/89/96%)에 넣고 구간 안에서 비례 계산합니다. 상위 5.2%는 2 + (5.2 − 4) ÷ 7 = 2.17등급입니다.</li>
+      <li><strong>판정:</strong> 안정은 50%컷 이내, 적정은 50~70%컷, 상향은 70%컷부터 70%컷 + 상향 범위(또는 추가합격 컷)까지, 그보다 낮으면 위험입니다.</li>
+      <li><strong>종합 보정:</strong> 성적 상승세(최대 0.15)와 전공 관련 교과 우수도(최대 0.15)를 더해 최대 0.3등급까지 유리하게 봅니다. 교과전형에는 적용하지 않습니다.</li>
+    </ul>
+  </section>
+</main>
+<!--APP-END-->
+<script src="js/engine.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
