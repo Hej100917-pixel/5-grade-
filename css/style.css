@@ -234,3 +234,4 @@ td.is-ref { font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) {
   .seg button, .chip, .btn { transition: background-color 0.15s, color 0.15s; }
 }
+#univBody small.adm { color: var(--muted, #888); font-size: .78em; }

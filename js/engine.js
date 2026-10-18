@@ -420,7 +420,7 @@
 
   /*
    * CSV(대학어디가 등에서 정리한 표) → 입결 행 목록.
-   * 한 줄 = 대학·학과·전형유형·학년도 하나. 같은 대학·학과·전형유형은 한 행으로 합칩니다.
+   * 한 줄 = 대학·학과·전형·학년도 하나. 같은 대학·학과·전형유형·전형명은 한 행으로 합칩니다.
    * 반환: { rows, errors }
    */
   function csvToRows(text) {
@@ -446,7 +446,7 @@
         errors.push((i + 2) + '번째 줄: 대학·학과·전형유형(종합/교과)·학년도를 확인하세요.');
         return;
       }
-      const key = univ + '|' + dept + '|' + type;
+      const key = univ + '|' + dept + '|' + type + '|' + get('admission');
       if (!map[key]) {
         map[key] = {
           univ: univ, dept: dept, type: type,
