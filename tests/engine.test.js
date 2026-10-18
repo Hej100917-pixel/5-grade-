@@ -95,6 +95,32 @@ test('판정: 안정 / 적정 / 상향 / 위험', () => {
   assert.strictEqual(E.judge(3.0, cuts).verdict, '위험');
   assert.strictEqual(E.judge(2.4, cuts, { bonus: 0.15 }).verdict, '적정');
 });
+test('판정: 평균만 공개된 경우 평균을 기준선으로', () => {
+  const j = E.judge(2.1, { c50: null, c70: null, cf: null, avg: 2.0 });
+  assert.strictEqual(j.refs.refKind, '평균');
+  assert.strictEqual(j.verdict, '상향');
+  assert.strictEqual(E.judge(1.7, { c50: null, c70: null, cf: null, avg: 2.0 }).verdict, '안정');
+});
+test('판정: 컷이 하나도 없으면 입결 없음', () => {
+  assert.strictEqual(E.judge(2.0, { c50: null, c70: null, cf: null, avg: null }).verdict, '입결 없음');
+});
+test('CSV: 따옴표·학년도별 줄 합치기', () => {
+  const csv = '대학,학과,구분,계열,전형유형,전형명,반영,학년도,50%컷,70%컷,추합컷,평균,출처\n' +
+    '가나대학교,"경영학과",문과,경영·경제,학생부종합,"활동우수형, 서류",전과목,2026,2.1,2.4,,,https://a\n' +
+    '가나대학교,경영학과,문과,경영·경제,학생부종합,활동우수형,전과목,2025학년도,2.0,2.3,,,\n' +
+    '가나대학교,경영학과,문과,경영·경제,교과,지역균형,국영수사,2026,,1.8,,,\n' +
+    ',빈줄,,,,,,,,,,,\n';
+  const r = E.csvToRows(csv);
+  assert.strictEqual(r.rows.length, 2);
+  const jong = r.rows.find((x) => x.type === '종합');
+  assert.strictEqual(jong.admission, '활동우수형, 서류');
+  assert.deepStrictEqual(Object.keys(jong.cuts).sort(), ['2025', '2026']);
+  assert.strictEqual(jong.cuts['2026'].c70, 2.4);
+  assert.strictEqual(r.errors.length, 1);
+});
+test('CSV: 필수 열이 없으면 오류', () => {
+  assert.ok(E.csvToRows('대학,학과\n가,나').errors.length > 0);
+});
 test('목표 석차 계산', () => {
   assert.strictEqual(E.rankForPercentile(4, 250), 10);
   assert.strictEqual(E.rankForPercentile(0.1, 100), 1);

@@ -9,8 +9,34 @@
   const STORE_KEY = 'gradeup.v1';
   const SCENARIOS = ['keep', 'A', 'B', 'custom'];
   const SCEN_LABEL = { keep: '현재 유지', A: 'A 안정 상승', B: 'B 전공 집중', custom: '직접 조정' };
-  const VERDICTS = ['안정', '적정', '상향', '위험'];
+  const VERDICTS = ['안정', '적정', '상향', '위험', '입결 없음'];
   const FIELDS = Object.keys(DATA.fields);
+  const DB = window.GRADEUP_DB || {};
+  const IMPORT_KEY = 'gradeup.import.v1';
+
+  // 불러온(CSV) 입결: 이 브라우저에만 저장
+  function loadImported() {
+    try {
+      const v = JSON.parse(window.localStorage.getItem(IMPORT_KEY) || 'null');
+      return v && Array.isArray(v.rows) ? v.rows : [];
+    } catch (e) { return []; }
+  }
+  let imported = loadImported();
+  function saveImported() {
+    try { window.localStorage.setItem(IMPORT_KEY, JSON.stringify({ rows: imported })); } catch (e) { /* 저장 불가 환경 */ }
+  }
+  // 실제 입결 = 저장소 데이터 + 불러온 데이터 (같은 대학·학과면 불러온 쪽 우선)
+  function realRows(type) {
+    const map = new Map();
+    ((DB[type] && DB[type].universities) || []).forEach(function (r) { map.set(r.univ + '|' + r.dept, r); });
+    imported.filter(function (r) { return r.type === type; }).forEach(function (r) { map.set(r.univ + '|' + r.dept, r); });
+    return Array.from(map.values());
+  }
+  function realCount() { return realRows('종합').length + realRows('교과').length; }
+  function dbNote(univ) {
+    const n = DB[state.mode] && DB[state.mode].notes;
+    return n && n[univ] ? n[univ] : '';
+  }
 
   // 예시 성적: 공학 계열 희망 1학년 (2022 개정 공통과목)
   const SAMPLE = [
@@ -44,8 +70,8 @@
       mode: '종합', field: '공학', related: DATA.fields['공학'].slice(),
       subjects: sampleSubjects(), sample: true,
       sim: { scenario: 'A', rate: 15, targetP: 4, futureCredits: '', expectedN: '', yw: [1, 1, 1], custom: {} },
-      margin: 0.5, filter: { verdict: '전체', field: '전체', q: '' },
-      selected: null, goal: 'c70', targetSem: '',
+      margin: 0.5, filter: { verdict: '전체', field: '전체', q: '', univ: '전체', track: '전체', hideEmpty: false },
+      selected: null, goal: 'c70', targetSem: '', dataset: '실제',
     };
   }
 
@@ -70,7 +96,13 @@
   }
 
   const state = load();
+  if (!realCount()) state.dataset = '예시';
   const $ = function (sel) { return document.querySelector(sel); };
+  function universities() {
+    return state.dataset === '예시'
+      ? DATA.sample.filter(function (u) { return u.type === state.mode; })
+      : realRows(state.mode);
+  }
   function esc(s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -117,13 +149,13 @@
     const semSeries = profile.pastSems.map(function (s) { return profile.semOverall[s]; })
       .concat(active.futureSems.map(function (s) { return active.semOverall[s]; }));
 
-    const rows = DATA.universities.filter(function (u) { return u.type === state.mode; }).map(function (u) {
-      const cuts = E.aggregateCuts(u.cuts, [5, 3, 2]);
+    const rows = universities().map(function (u) {
+      const cuts = E.aggregateCuts(u.cuts || {}, [5, 3, 2]);
       const g = groups[u.basis] || groups['전과목'];
       const my = g.projected;
       let bonus = { trend: 0, fit: 0, total: 0 };
       if (state.mode === '종합' && my !== null) {
-        const rel = relatedFor(u.field);
+        const rel = u.field ? relatedFor(u.field) : state.related;
         const relAvg = group(rel, 'f:' + u.field).projected;
         const ach = state.subjects.filter(function (s) {
           return s.absoluteOnly && s.achievement && rel.indexOf(s.category) >= 0;
@@ -132,13 +164,14 @@
       }
       const j = E.judge(my, cuts, { bonus: bonus.total, margin: E.num(state.margin) >= 0 ? E.num(state.margin) : 0.5 });
       return {
-        u: u, cuts: cuts, my: my, bonus: bonus, verdict: j.verdict, adj: j.adj, diff70: j.diff70,
-        key: u.univ + '|' + u.dept + '|' + u.type, group: g,
+        u: u, cuts: cuts, my: my, bonus: bonus, verdict: j.verdict, adj: j.adj, diff70: j.diff70, refs: j.refs,
+        key: u.univ + '|' + u.dept + '|' + u.type, group: g, basisLabel: u.basis || '전과목*',
       };
     });
-    const order = { '안정': 0, '적정': 1, '상향': 2, '위험': 3, '정보 부족': 4 };
+    const order = { '안정': 0, '적정': 1, '상향': 2, '위험': 3, '성적 없음': 4, '입결 없음': 5 };
     rows.sort(function (a, b) {
-      return (order[a.verdict] - order[b.verdict]) || ((a.cuts.c70 || 9) - (b.cuts.c70 || 9));
+      return (order[a.verdict] - order[b.verdict]) || ((a.refs.ref || 9) - (b.refs.ref || 9)) ||
+        a.u.univ.localeCompare(b.u.univ, 'ko');
     });
 
     return { profile: profile, projs: projs, active: active, custom: custom, groups: groups, rows: rows, yw: yw, semSeries: semSeries };
@@ -244,7 +277,7 @@
     c.profile.pastSems.forEach(function (s) { vals.push(c.profile.semOverall[s]); });
     SCENARIOS.forEach(function (k) { c.profile.futureSems.forEach(function (s) { vals.push(c.projs[k].semOverall[s]); }); });
     const sel = selectedRow(c);
-    if (sel && sel.cuts.c70) vals.push(sel.cuts.c70);
+    if (sel && sel.refs.ref) vals.push(sel.refs.ref);
     const yMax = drag ? drag.yMax : E.clamp(Math.ceil(Math.max.apply(null, vals.filter(Number.isFinite).concat([2])) + 0.4), 3, 9);
     const yv = function (g) { return CH.t + (g - 1) / (yMax - 1) * (CH.H - CH.t - CH.b); };
     let out = '';
@@ -262,10 +295,10 @@
     sems.forEach(function (s, i) {
       out += '<text x="' + xi(i) + '" y="' + (CH.H - 14) + '" text-anchor="middle">' + s + '</text>';
     });
-    if (sel && sel.cuts.c70) {
-      const y = yv(sel.cuts.c70);
+    if (sel && sel.refs.ref) {
+      const y = yv(sel.refs.ref);
       out += '<line class="target" x1="' + CH.l + '" x2="' + (CH.W - CH.r) + '" y1="' + y + '" y2="' + y + '"></line>';
-      out += '<text class="target-label" x="' + (CH.W - CH.r) + '" y="' + (y - 5) + '" text-anchor="end">' + esc(sel.u.univ + ' 70%컷 ' + f2(sel.cuts.c70)) + '</text>';
+      out += '<text class="target-label" x="' + (CH.l + 6) + '" y="' + (y - 5) + '" text-anchor="start">' + esc(sel.u.univ + ' ' + sel.u.dept + ' ' + sel.refs.refKind + ' ' + f2(sel.refs.ref)) + '</text>';
     }
 
     const pastPts = c.profile.pastSems.map(function (s) { return [xi(sems.indexOf(s)), yv(c.profile.semOverall[s])]; });
@@ -302,7 +335,7 @@
 
     $('#legend').innerHTML = '<span class="lg-past">입력 성적 (학기 평균)</span>' +
       '<span class="lg-active">' + esc(SCEN_LABEL[state.sim.scenario]) + '</span>' +
-      '<span>다른 시나리오</span>' + (sel ? '<span class="lg-target">선택한 대학 70%컷</span>' : '');
+      '<span>다른 시나리오</span>' + (sel ? '<span class="lg-target">선택한 학과 기준선</span>' : '');
   }
 
   function renderCustomInputs(c) {
@@ -369,17 +402,56 @@
 
   function filteredRows(c) {
     const q = (state.filter.q || '').trim();
+    const f = state.filter;
     return c.rows.filter(function (r) {
-      if (state.filter.field !== '전체' && r.u.field !== state.filter.field) return false;
+      if (f.univ !== '전체' && r.u.univ !== f.univ) return false;
+      if (f.track !== '전체' && r.u.track !== f.track) return false;
+      if (f.field !== '전체' && r.u.field !== f.field) return false;
+      if (f.hideEmpty && r.verdict === '입결 없음') return false;
       if (q && (r.u.univ + ' ' + r.u.dept).indexOf(q) < 0) return false;
       return true;
     });
   }
 
+  function verdictClass(v) { return v === '입결 없음' || v === '성적 없음' ? 'v-없음' : 'v-' + v; }
+
+  function renderFilterOptions(c) {
+    const univs = [];
+    c.rows.forEach(function (r) { if (univs.indexOf(r.u.univ) < 0) univs.push(r.u.univ); });
+    univs.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+    if (state.filter.univ !== '전체' && univs.indexOf(state.filter.univ) < 0) state.filter.univ = '전체';
+    $('#univFilter').innerHTML = ['전체'].concat(univs).map(function (u) { return opt(u, u, state.filter.univ); }).join('');
+    $('#trackFilter').innerHTML = ['전체', '문과', '이과'].map(function (t) { return opt(t, t, state.filter.track); }).join('');
+  }
+
+  function renderNotice() {
+    const n = realCount();
+    const el = $('#dataNotice');
+    if (state.dataset === '예시') {
+      el.innerHTML = '지금은 <strong>가상의 대학으로 만든 예시 입결</strong>을 보고 있습니다. 판정은 화면 동작 확인용입니다.' +
+        (n ? ' Step 3에서 "실제 입결"로 바꿀 수 있습니다.' : ' 실제 입결은 Step 3 아래 "입결 직접 불러오기"로 넣을 수 있습니다.');
+    } else {
+      const u = new Set(realRows('종합').concat(realRows('교과')).map(function (r) { return r.univ; })).size;
+      el.innerHTML = '실제 입결 ' + u + '개 대학 · ' + n + '개 모집단위를 쓰고 있습니다 (불러온 입결 ' + imported.length + '개 포함). 판정은 공개 입결에 기반한 참고용 추정치입니다.';
+    }
+    document.querySelectorAll('[data-ds]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.ds === state.dataset));
+      b.disabled = b.dataset.ds === '실제' && !n;
+    });
+  }
+
+  function cutCell(r, k) {
+    const v = r.cuts[k];
+    const isRef = (k === 'c70' && r.refs.refKind === '70%컷') || (k === 'avg' && r.refs.refKind === '평균') || (k === 'c50' && r.refs.refKind === '50%컷');
+    return '<td class="n num' + (isRef ? ' is-ref' : '') + '">' + f2(v) + '</td>';
+  }
+
   function renderUnivs(c) {
+    renderFilterOptions(c);
     const base = filteredRows(c);
     const counts = { '전체': base.length };
     VERDICTS.forEach(function (v) { counts[v] = base.filter(function (r) { return r.verdict === v; }).length; });
+    if (state.filter.verdict !== '전체' && VERDICTS.indexOf(state.filter.verdict) < 0) state.filter.verdict = '전체';
     $('#verdictChips').innerHTML = ['전체'].concat(VERDICTS).map(function (v) {
       return '<button type="button" class="chip" data-verdict="' + v + '" aria-pressed="' + (state.filter.verdict === v) + '">' + v + '<span class="count">' + counts[v] + '</span></button>';
     }).join('');
@@ -387,20 +459,36 @@
     const rows = base.filter(function (r) { return state.filter.verdict === '전체' || r.verdict === state.filter.verdict; });
     const comp = state.mode === '종합';
     $('#bonusHead').hidden = !comp;
+    const cols = comp ? 13 : 12;
+    if (!c.rows.length) {
+      $('#univBody').innerHTML = '<tr><td colspan="' + cols + '" class="empty">이 전형(학생부' + esc(state.mode) + ')의 입결이 아직 없습니다. 아래 "입결 직접 불러오기"로 CSV를 넣거나 예시 데이터로 바꿔 보세요.</td></tr>';
+      return;
+    }
     $('#univBody').innerHTML = rows.length ? rows.map(function (r) {
       const d = r.diff70;
       const dCls = d === null ? '' : d <= 0 ? 'diff-good' : 'diff-bad';
       const dTxt = d === null ? '–' : (d > 0 ? '+' : '') + d.toFixed(2) + (d <= 0 ? ' 여유' : ' 부족');
-      const vCls = r.verdict === '정보 부족' ? 'v-정보' : 'v-' + r.verdict;
-      return '<tr data-key="' + esc(r.key) + '" class="' + (r.key === state.selected ? 'sel' : '') + '" tabindex="0">' +
-        '<td><span class="badge ' + vCls + '">' + esc(r.verdict) + '</span></td>' +
-        '<td>' + esc(r.u.univ) + '</td><td>' + esc(r.u.dept) + '</td><td>' + esc(r.u.field) + '</td><td>' + esc(r.u.basis) + '</td>' +
-        '<td class="n num">' + f2(r.cuts.c50) + '</td><td class="n num">' + f2(r.cuts.c70) + '</td><td class="n num">' + f2(r.cuts.cf) + '</td>' +
+      const refTag = r.refs.refKind && r.refs.refKind !== '70%컷' ? '<span class="ref-mark">' + esc(r.refs.refKind) + ' 기준</span>' : '';
+      return '<tr data-key="' + esc(r.key) + '" class="' + (r.key === state.selected ? 'sel' : '') + (r.verdict === '입결 없음' ? ' no-data' : '') + '" tabindex="0">' +
+        '<td><span class="badge ' + verdictClass(r.verdict) + '">' + esc(r.verdict) + '</span></td>' +
+        '<td>' + esc(r.u.univ) + '</td><td>' + esc(r.u.dept) + '</td><td>' + esc(r.u.track || '–') + '</td><td>' + esc(r.u.field || '–') + '</td><td>' + esc(r.basisLabel) + '</td>' +
+        cutCell(r, 'c50') + cutCell(r, 'c70') + cutCell(r, 'avg') + '<td class="n num">' + f2(r.cuts.cf) + '</td>' +
         '<td class="n num">' + f2(r.my) + '</td>' +
-        '<td class="n num ' + dCls + '">' + dTxt + '</td>' +
-        (comp ? '<td class="n num">' + (r.bonus.total > 0 ? '−' + r.bonus.total.toFixed(2) : '0.00') + '</td>' : '') +
+        '<td class="n num ' + dCls + '">' + dTxt + refTag + '</td>' +
+        (comp ? '<td class="n num">' + (r.verdict === '입결 없음' ? '–' : r.bonus.total > 0 ? '−' + r.bonus.total.toFixed(2) : '0.00') + '</td>' : '') +
         '</tr>';
-    }).join('') : '<tr><td colspan="11" class="empty">조건에 맞는 대학이 없습니다.</td></tr>';
+    }).join('') : '<tr><td colspan="' + cols + '" class="empty">조건에 맞는 학과가 없습니다.</td></tr>';
+  }
+
+  function sourceList(u) {
+    const src = (u.sources || []).filter(function (s) { return s.url; });
+    if (!src.length) return '<p class="hint">출처 정보가 없습니다.</p>';
+    return '<ul class="sources">' + src.map(function (s) {
+      const safe = /^https?:\/\//.test(s.url);
+      const label = (s.year ? s.year + ' · ' : '') + (s.note || s.url);
+      return '<li>' + (safe ? '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(label) + '</a>' : esc(label)) +
+        (s.kind === 'secondary' ? ' <span class="ref-mark">2차 출처</span>' : s.kind === 'user' ? ' <span class="ref-mark">직접 불러옴</span>' : '') + '</li>';
+    }).join('') + '</ul>';
   }
 
   function renderDetail(c) {
@@ -409,15 +497,28 @@
     if (!r) { box.hidden = true; return; }
     box.hidden = false;
     const comp = state.mode === '종합';
-    const goalCut = state.goal === 'c50' ? r.cuts.c50 : r.cuts.c70;
+    const note = dbNote(r.u.univ);
+    const head = '<div class="detail-head"><h3>' + esc(r.u.univ + ' ' + r.u.dept) + ' <span class="badge ' + verdictClass(r.verdict) + '">' + esc(r.verdict) + '</span></h3>' +
+      '<button type="button" class="link" id="closeDetail">닫기</button></div>' +
+      '<p class="hint">학생부' + esc(r.u.type) + (r.u.admission ? ' · ' + esc(r.u.admission) : '') + ' · 반영 ' + esc(r.u.basis || '미공개 (전과목으로 계산)') + '</p>';
+
+    if (r.verdict === '입결 없음') {
+      box.innerHTML = head + '<p>이 학과는 공개된 입결을 아직 넣지 못했습니다. 아래 "입결 직접 불러오기"로 값을 넣으면 판정과 역산이 계산됩니다.</p>' +
+        (note ? '<p class="univ-note">' + esc(note) + '</p>' : '') + sourceList(r.u);
+      return;
+    }
+
+    const goalCut = state.goal === 'c50' ? r.refs.safe : r.refs.ref;
+    const goalLabel = state.goal === 'c50' ? r.refs.safeKind : r.refs.refKind;
     const target = goalCut === null ? null : goalCut + (comp ? r.bonus.total : 0);
     const bt = target === null ? { status: 'noData' } : E.backtrack(r.group, target);
     const years = r.cuts.years;
+    const basisCats = E.BASIS[r.u.basis] || E.BASIS['전과목'];
 
     let btHtml;
     if (bt.status === 'ok') {
-      const cats = E.BASIS[r.u.basis].filter(function (k) { return c.profile.byCat[k]; });
-      btHtml = '<p>남은 ' + c.profile.futureSems.length + '학기 동안 <strong>' + esc(r.u.basis) + '</strong> 평균을 <span class="big">' + f2(bt.required) + '</span>등급 이내(상위 약 ' + f1(bt.P) + '%)로 유지해야 합니다.</p>' +
+      const cats = basisCats.filter(function (k) { return c.profile.byCat[k]; });
+      btHtml = '<p>남은 ' + c.profile.futureSems.length + '학기 동안 <strong>' + esc(r.basisLabel) + '</strong> 평균을 <span class="big">' + f2(bt.required) + '</span>등급 이내(상위 약 ' + f1(bt.P) + '%)로 유지해야 합니다.</p>' +
         '<div class="table-wrap"><table class="grid compact"><thead><tr><th>교과</th><th class="n">현재</th><th class="n">필요 등급</th><th>목표 석차</th></tr></thead><tbody>' +
         cats.map(function (k) {
           const n = expectedN(c, k);
@@ -431,30 +532,31 @@
     } else if (bt.status === 'noFuture') {
       btHtml = '<p>남은 학기가 없어 역산할 수 없습니다.</p>';
     } else {
-      btHtml = '<p>' + esc(r.u.basis) + ' 교과 성적이 입력되지 않았습니다.</p>';
+      btHtml = '<p>반영 교과 성적이 입력되지 않았습니다.</p>';
     }
 
-    box.innerHTML =
-      '<div class="detail-head"><h3>' + esc(r.u.univ + ' ' + r.u.dept) + ' <span class="badge ' + (r.verdict === '정보 부족' ? 'v-정보' : 'v-' + r.verdict) + '">' + esc(r.verdict) + '</span></h3>' +
-      '<button type="button" class="link" id="closeDetail">닫기</button></div>' +
+    box.innerHTML = head +
       '<div class="detail-cols">' +
-      '<div><h4>최근 3개년 입결 (학생부' + esc(r.u.type) + ', ' + esc(r.u.basis) + ')</h4>' +
-      '<div class="table-wrap"><table class="grid compact"><thead><tr><th>학년도</th><th class="n">50%컷</th><th class="n">70%컷</th><th class="n">추합컷</th></tr></thead><tbody>' +
+      '<div><h4>최근 3개년 입결</h4>' +
+      '<div class="table-wrap"><table class="grid compact"><thead><tr><th>학년도</th><th class="n">50%컷</th><th class="n">70%컷</th><th class="n">평균</th><th class="n">추합컷</th></tr></thead><tbody>' +
       years.map(function (y, i) {
         const v = r.u.cuts[y];
-        return '<tr><td>' + y + ' <span class="notes" style="display:inline">×' + [5, 3, 2][i] + '</span></td><td class="n num">' + f2(v.c50) + '</td><td class="n num">' + f2(v.c70) + '</td><td class="n num">' + f2(v.cf) + '</td></tr>';
+        return '<tr><td>' + y + ' <span class="ref-mark">×' + [5, 3, 2][i] + '</span></td><td class="n num">' + f2(v.c50) + '</td><td class="n num">' + f2(v.c70) + '</td><td class="n num">' + f2(v.avg) + '</td><td class="n num">' + f2(v.cf) + '</td></tr>';
       }).join('') +
-      '<tr><td><strong>가중 평균</strong></td><td class="n num"><strong>' + f2(r.cuts.c50) + '</strong></td><td class="n num"><strong>' + f2(r.cuts.c70) + '</strong></td><td class="n num"><strong>' + f2(r.cuts.cf) + '</strong></td></tr>' +
-      '</tbody></table></div></div>' +
+      '<tr><td><strong>가중 평균</strong></td><td class="n num"><strong>' + f2(r.cuts.c50) + '</strong></td><td class="n num"><strong>' + f2(r.cuts.c70) + '</strong></td><td class="n num"><strong>' + f2(r.cuts.avg) + '</strong></td><td class="n num"><strong>' + f2(r.cuts.cf) + '</strong></td></tr>' +
+      '</tbody></table></div>' +
+      '<p class="hint">판정 기준선: ' + esc(r.refs.refKind) + ' ' + f2(r.refs.ref) + ' · 안정선: ' + esc(r.refs.safeKind) + ' ' + f2(r.refs.safe) + '</p>' +
+      '<h4>출처</h4>' + sourceList(r.u) +
+      (note ? '<p class="univ-note">' + esc(note) + '</p>' : '') + '</div>' +
       '<div><h4>내 예상 성적 (' + esc(SCEN_LABEL[state.sim.scenario]) + ')</h4><dl class="kv">' +
-      '<dt>지금까지 ' + esc(r.u.basis) + '</dt><dd>' + f2(r.group.past) + '</dd>' +
+      '<dt>지금까지 ' + esc(r.basisLabel) + '</dt><dd>' + f2(r.group.past) + '</dd>' +
       '<dt>예상 최종</dt><dd>' + f2(r.my) + '</dd>' +
       (comp ? '<dt>상승세 보정</dt><dd>−' + r.bonus.trend.toFixed(2) + '</dd><dt>전공 적합 보정</dt><dd>−' + r.bonus.fit.toFixed(2) + '</dd><dt>보정 후</dt><dd>' + f2(r.adj) + '</dd>' : '') +
-      '<dt>70%컷 대비</dt><dd>' + (r.diff70 === null ? '–' : (r.diff70 > 0 ? '+' : '') + r.diff70.toFixed(2)) + '</dd>' +
+      '<dt>기준선 대비</dt><dd>' + (r.diff70 === null ? '–' : (r.diff70 > 0 ? '+' : '') + r.diff70.toFixed(2)) + '</dd>' +
       '</dl></div>' +
       '<div><h4>목표 역산</h4>' +
-      '<div class="seg" role="group" aria-label="목표 기준"><button type="button" data-goal="c50" aria-pressed="' + (state.goal === 'c50') + '">안정 (50%컷)</button><button type="button" data-goal="c70" aria-pressed="' + (state.goal === 'c70') + '">적정 (70%컷)</button></div>' +
-      (comp && r.bonus.total > 0 ? '<p class="hint">종합 보정 ' + r.bonus.total.toFixed(2) + '을 반영한 목표: ' + f2(target) + '등급</p>' : '') +
+      '<div class="seg" role="group" aria-label="목표 기준"><button type="button" data-goal="c50" aria-pressed="' + (state.goal === 'c50') + '">안정</button><button type="button" data-goal="c70" aria-pressed="' + (state.goal === 'c70') + '">적정</button></div>' +
+      '<p class="hint">목표: ' + esc(goalLabel) + ' ' + f2(goalCut) + (comp && r.bonus.total > 0 ? ' (종합 보정 ' + r.bonus.total.toFixed(2) + ' 반영 시 ' + f2(target) + ')' : '') + '</p>' +
       btHtml + '</div>' +
       '</div>';
   }
@@ -471,6 +573,7 @@
     renderNextTable(c);
     renderUnivs(c);
     renderDetail(c);
+    renderNotice();
     syncButtons();
     save();
   }
@@ -497,6 +600,15 @@
       renderRelated();
       refresh();
     });
+    document.querySelectorAll('[data-ds]').forEach(function (b) {
+      b.addEventListener('click', function () { state.dataset = b.dataset.ds; state.selected = null; refresh(); });
+    });
+    $('#univFilter').addEventListener('change', function (e) { state.filter.univ = e.target.value; refresh(); });
+    $('#trackFilter').addEventListener('change', function (e) { state.filter.track = e.target.value; refresh(); });
+    const he = $('#hideEmpty');
+    he.checked = !!state.filter.hideEmpty;
+    he.addEventListener('change', function () { state.filter.hideEmpty = he.checked; refresh(); });
+    bindImporter();
     const ff = $('#fieldFilter');
     ff.innerHTML = ['전체'].concat(FIELDS).map(function (f) { return opt(f, f, state.filter.field); }).join('');
     ff.addEventListener('change', function () { state.filter.field = ff.value; refresh(); });
@@ -667,7 +779,68 @@
     });
   }
 
-  $('#sampleNotice').hidden = !DATA.isSample;
+  // ───────────── 입결 불러오기 (CSV) ─────────────
+  function bindImporter() {
+    const status = $('#importStatus');
+    function apply(text) {
+      const res = E.csvToRows(text);
+      if (!res.rows.length) {
+        status.textContent = '불러온 행이 없습니다. ' + res.errors.slice(0, 3).join(' ');
+        return;
+      }
+      const keys = new Set(res.rows.map(function (r) { return r.univ + '|' + r.dept + '|' + r.type; }));
+      imported = imported.filter(function (r) { return !keys.has(r.univ + '|' + r.dept + '|' + r.type); }).concat(res.rows);
+      saveImported();
+      state.dataset = '실제';
+      status.textContent = res.rows.length + '개 모집단위를 불러왔습니다.' +
+        (res.errors.length ? ' 건너뛴 줄 ' + res.errors.length + '개: ' + res.errors.slice(0, 2).join(' ') : '');
+      refresh();
+    }
+    $('#importBtn').addEventListener('click', function () { apply($('#csvPaste').value); });
+    $('#csvFile').addEventListener('change', function (e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function () { apply(String(reader.result || '')); e.target.value = ''; };
+      reader.onerror = function () { status.textContent = '파일을 읽지 못했습니다. CSV(UTF-8)로 저장했는지 확인하세요.'; };
+      reader.readAsText(file, 'utf-8');
+    });
+    $('#copyTemplate').addEventListener('click', function () {
+      const text = $('#csvTemplate').textContent.split('\n')[0];
+      const done = function () { status.textContent = '머리글을 복사했습니다. 엑셀 첫 줄에 붙여 넣으세요.'; };
+      try {
+        navigator.clipboard.writeText(text).then(done, function () { selectTemplate(); });
+      } catch (err) { selectTemplate(); }
+    });
+    function selectTemplate() {
+      const range = document.createRange();
+      range.selectNodeContents($('#csvTemplate'));
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      status.textContent = '복사가 막혀 있어 양식을 선택해 두었습니다. Ctrl+C로 복사하세요.';
+    }
+    const clr = $('#clearImport');
+    let armTimer = null;
+    clr.addEventListener('click', function () {
+      if (!imported.length) { status.textContent = '불러온 입결이 없습니다.'; return; }
+      if (!clr.classList.contains('armed')) {
+        clr.classList.add('armed');
+        clr.textContent = '한 번 더 누르면 지워집니다';
+        armTimer = setTimeout(function () { clr.classList.remove('armed'); clr.textContent = '불러온 입결 지우기'; }, 3000);
+        return;
+      }
+      clearTimeout(armTimer);
+      clr.classList.remove('armed');
+      clr.textContent = '불러온 입결 지우기';
+      imported = [];
+      saveImported();
+      if (!realCount()) state.dataset = '예시';
+      status.textContent = '불러온 입결을 지웠습니다.';
+      refresh();
+    });
+  }
+
   bind();
   renderSubjects();
   renderRelated();

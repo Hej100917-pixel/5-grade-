@@ -30,7 +30,7 @@
 </header>
 
 <main class="wrap">
-  <p class="notice" id="sampleNotice">대학 입결은 <strong>가상의 대학으로 만든 예시 데이터</strong>입니다. 실제 입결로 바꾸려면 <code>js/data.js</code>를 수정하세요. 판정은 참고용 추정치입니다.</p>
+  <p class="notice" id="dataNotice"></p>
 
   <section class="step" id="step1" aria-labelledby="h-step1">
     <div class="step-head">
@@ -142,14 +142,23 @@
     <div class="step-head">
       <span class="step-no">Step 3</span>
       <h2 id="h-step3">대학 리스트</h2>
-      <p class="step-desc">예상 최종 내신을 최근 3개년 입결(최근 연도 가중 5:3:2)과 비교합니다. 행을 누르면 목표 역산을 볼 수 있습니다.</p>
+      <p class="step-desc">예상 최종 내신을 최근 3개년 입결(최근 연도 가중 5:3:2)과 비교합니다. 70%컷이 없으면 평균, 그다음 50%컷을 기준으로 씁니다. 행을 누르면 출처와 목표 역산을 볼 수 있습니다.</p>
     </div>
 
     <div class="filters">
-      <div class="chips" id="verdictChips"></div>
+      <div class="seg" role="group" aria-label="입결 데이터">
+        <button type="button" id="ds-real" data-ds="실제">실제 입결</button>
+        <button type="button" id="ds-sample" data-ds="예시">예시 데이터</button>
+      </div>
+      <label class="inline">대학 <select id="univFilter"></select></label>
+      <label class="inline">구분 <select id="trackFilter"></select></label>
       <label class="inline">계열 <select id="fieldFilter"></select></label>
       <label class="inline">검색 <input type="search" id="searchBox" placeholder="대학·학과"></label>
-      <label class="inline">상향 범위 70%컷 +<input type="number" id="pMargin" min="0" max="2" step="0.1">등급</label>
+    </div>
+    <div class="filters">
+      <div class="chips" id="verdictChips"></div>
+      <label class="inline"><input type="checkbox" id="hideEmpty"> 입결 없는 학과 숨기기</label>
+      <label class="inline">상향 범위 기준선 +<input type="number" id="pMargin" min="0" max="2" step="0.1">등급</label>
     </div>
 
     <div class="detail" id="detail" hidden></div>
@@ -158,14 +167,35 @@
       <table class="grid univ">
         <thead>
           <tr>
-            <th>판정</th><th>대학</th><th>학과</th><th>계열</th><th>반영</th>
-            <th class="n">50%컷</th><th class="n">70%컷</th><th class="n">추합컷</th>
-            <th class="n">내 예상</th><th class="n">70%컷 대비</th><th class="n" id="bonusHead">종합 보정</th>
+            <th>판정</th><th>대학</th><th>학과</th><th>구분</th><th>계열</th><th>반영</th>
+            <th class="n">50%컷</th><th class="n">70%컷</th><th class="n">평균</th><th class="n">추합컷</th>
+            <th class="n">내 예상</th><th class="n">기준 대비</th><th class="n" id="bonusHead">종합 보정</th>
           </tr>
         </thead>
         <tbody id="univBody"></tbody>
       </table>
     </div>
+
+    <details class="importer" id="importer">
+      <summary>입결 직접 불러오기 (CSV · 엑셀)</summary>
+      <div class="importer-body">
+        <p class="hint">엑셀에서 아래 머리글로 표를 만든 뒤 CSV로 저장해 올리거나, 표를 복사해 붙여 넣으세요. 한 줄에 대학·학과·전형유형·학년도 하나씩 적습니다. 같은 대학·학과·전형은 기존 입결을 덮어씁니다. 불러온 입결은 이 브라우저에만 저장됩니다.</p>
+        <pre class="tpl" id="csvTemplate">대학,학과,구분,계열,전형유형,전형명,반영,학년도,50%컷,70%컷,추합컷,평균,출처
+가나대학교,경영학과,문과,경영·경제,학생부종합,활동우수형,전과목,2026,2.10,2.45,2.90,,https://...</pre>
+        <div class="toolbar">
+          <button type="button" class="btn ghost" id="copyTemplate">머리글 복사</button>
+          <label class="btn ghost file-btn">CSV 파일 선택<input type="file" id="csvFile" accept=".csv,.tsv,.txt,text/csv"></label>
+        </div>
+        <label class="paste">또는 붙여 넣기
+          <textarea id="csvPaste" rows="5" placeholder="대학,학과,구분,계열,전형유형,..."></textarea>
+        </label>
+        <div class="toolbar">
+          <button type="button" class="btn" id="importBtn">붙여 넣은 내용 불러오기</button>
+          <button type="button" class="btn ghost danger" id="clearImport">불러온 입결 지우기</button>
+          <span class="hint" id="importStatus"></span>
+        </div>
+      </div>
+    </details>
   </section>
 
   <section class="method" aria-labelledby="h-method">
@@ -174,7 +204,7 @@
       <li><strong>트랙 A:</strong> 상위 % = (중간석차 − 0.5) ÷ 수강자 수 × 100. 중간석차 = 석차 + (동석차 수 − 1) ÷ 2.</li>
       <li><strong>트랙 B:</strong> Z = (원점수 − 평균) ÷ 표준편차로 정규분포 상위 비율을 구하고, 입력한 5등급 구간(10/34/66/90%) 안으로 제한합니다.</li>
       <li><strong>환산 등급:</strong> 상위 %를 9등급제 구간(4/11/23/40/60/77/89/96%)에 넣고 구간 안에서 비례 계산합니다. 상위 5.2%는 2 + (5.2 − 4) ÷ 7 = 2.17등급입니다.</li>
-      <li><strong>판정:</strong> 안정은 50%컷 이내, 적정은 50~70%컷, 상향은 70%컷부터 70%컷 + 상향 범위(또는 추가합격 컷)까지, 그보다 낮으면 위험입니다.</li>
+      <li><strong>판정:</strong> 안정은 50%컷 이내, 적정은 50~70%컷, 상향은 70%컷부터 70%컷 + 상향 범위(또는 추가합격 컷)까지, 그보다 낮으면 위험입니다. 70%컷이 공개되지 않은 대학은 평균, 그다음 50%컷을 기준선으로 쓰고 표에 표시합니다.</li>
       <li><strong>종합 보정:</strong> 성적 상승세(최대 0.15)와 전공 관련 교과 우수도(최대 0.15)를 더해 최대 0.3등급까지 유리하게 봅니다. 교과전형에는 적용하지 않습니다.</li>
     </ul>
   </section>
@@ -182,6 +212,8 @@
 <!--APP-END-->
 <script src="js/engine.js"></script>
 <script src="js/data.js"></script>
+<script src="js/data-jonghap.js"></script>
+<script src="js/data-gyogwa.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

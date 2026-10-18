@@ -184,7 +184,22 @@ legend { padding: 0; margin-bottom: 4px; }
 .v-적정 { color: var(--fit); background: var(--fit-bg); }
 .v-상향 { color: var(--up); background: var(--up-bg); }
 .v-위험 { color: var(--risk); background: var(--risk-bg); }
-.v-정보 { color: var(--muted); background: var(--bg); }
+.v-없음 { color: var(--muted); background: var(--bg); border: 1px dashed var(--line); }
+.ref-mark { font-size: 0.7rem; color: var(--muted); margin-left: 3px; font-family: var(--font-body); }
+td.is-ref { font-weight: 600; }
+.univ tbody tr.no-data td { color: var(--muted); }
+.sources { margin: 0; padding-left: 18px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 2px; }
+.sources a { color: var(--accent); word-break: break-all; }
+.univ-note { font-size: 0.8rem; color: var(--muted); background: var(--bg); border-radius: 6px; padding: 8px 10px; }
+
+.importer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.importer summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 0.9rem; }
+.importer-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.tpl { margin: 0; overflow-x: auto; font-family: var(--font-num); font-size: 0.75rem; background: var(--bg); padding: 8px 10px; border-radius: 6px; }
+.file-btn { position: relative; overflow: hidden; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.paste { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.paste textarea { width: 100%; font-family: var(--font-num); font-size: 0.78rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px; color: var(--ink); }
 .diff-good { color: var(--safe); }
 .diff-bad { color: var(--risk); }
 .empty { padding: 20px; text-align: center; color: var(--muted); }

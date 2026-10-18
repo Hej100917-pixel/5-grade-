@@ -266,7 +266,7 @@
     const ws = weights || [5, 3, 2];
     const years = Object.keys(cutsByYear || {}).sort(function (a, b) { return b - a; }).slice(0, ws.length);
     const out = {};
-    ['c50', 'c70', 'cf'].forEach(function (key) {
+    ['c50', 'c70', 'cf', 'avg'].forEach(function (key) {
       let w = 0, s = 0;
       years.forEach(function (y, i) {
         const v = num(cutsByYear[y][key]);
@@ -300,26 +300,45 @@
   }
 
   /*
+   * 판정에 쓸 기준선을 고릅니다. 대학마다 공개 지표가 달라서
+   * 기준(ref)은 70% 컷 → 평균 → 50% 컷 순으로, 안정선(safe)은 50% 컷 → 평균 순으로 씁니다.
+   * 평균만 공개된 경우 안정선은 평균보다 0.2등급 좋은 지점으로 잡습니다.
+   */
+  function pickRefs(cuts) {
+    const has = function (k) { return cuts[k] !== null && cuts[k] !== undefined; };
+    let ref = null, refKind = null;
+    if (has('c70')) { ref = cuts.c70; refKind = '70%컷'; }
+    else if (has('avg')) { ref = cuts.avg; refKind = '평균'; }
+    else if (has('c50')) { ref = cuts.c50; refKind = '50%컷'; }
+    let safe = null, safeKind = null;
+    if (has('c50') && refKind !== '50%컷') { safe = cuts.c50; safeKind = '50%컷'; }
+    else if (has('avg') && refKind === '70%컷') { safe = Math.min(cuts.avg, ref); safeKind = '평균'; }
+    else if (ref !== null) { safe = ref - 0.2; safeKind = refKind + ' − 0.2'; }
+    return { ref: ref, refKind: refKind, safe: safe, safeKind: safeKind };
+  }
+
+  /*
    * 지원 판정. 등급은 숫자가 작을수록 좋습니다.
-   *  안정: 보정 등급 ≤ 50% 컷
-   *  적정: 50% 컷 < 보정 등급 ≤ 70% 컷
-   *  상향: 70% 컷 < 보정 등급 ≤ max(70% 컷 + margin, 추가합격 컷)
+   *  안정: 보정 등급 ≤ 안정선(50% 컷)
+   *  적정: 안정선 < 보정 등급 ≤ 기준선(70% 컷)
+   *  상향: 기준선 < 보정 등급 ≤ max(기준선 + margin, 추가합격 컷)
    *  위험: 그 밖
    */
   function judge(my, cuts, opts) {
     const o = opts || {};
     const bonus = o.bonus || 0;
     const margin = Number.isFinite(o.margin) ? o.margin : 0.5;
-    if (my === null || cuts.c70 === null) return { verdict: '정보 부족', adj: null, diff70: null };
+    const r = pickRefs(cuts);
+    if (r.ref === null) return { verdict: '입결 없음', adj: null, diff70: null, refs: r };
+    if (my === null) return { verdict: '성적 없음', adj: null, diff70: null, refs: r };
     const adj = my - bonus;
-    const c50 = cuts.c50 !== null ? cuts.c50 : cuts.c70;
-    const upper = Math.max(cuts.c70 + margin, cuts.cf !== null ? cuts.cf : -Infinity);
+    const upper = Math.max(r.ref + margin, cuts.cf !== null && cuts.cf !== undefined ? cuts.cf : -Infinity);
     let verdict;
-    if (adj <= c50) verdict = '안정';
-    else if (adj <= cuts.c70) verdict = '적정';
+    if (adj <= r.safe) verdict = '안정';
+    else if (adj <= r.ref) verdict = '적정';
     else if (adj <= upper) verdict = '상향';
     else verdict = '위험';
-    return { verdict: verdict, adj: adj, diff70: my - cuts.c70 };
+    return { verdict: verdict, adj: adj, diff70: my - r.ref, refs: r };
   }
 
   /*
@@ -335,6 +354,98 @@
     return { status: 'ok', required: R, P: grade9ToPercentile(R) };
   }
 
+  // CSV 텍스트 → 2차원 배열 (따옴표, 따옴표 안 쉼표·줄바꿈, 탭 구분 지원)
+  function parseCsv(text) {
+    const src = String(text || '').replace(/^﻿/, '');
+    const firstLine = src.split(/\r?\n/)[0] || '';
+    const sep = firstLine.indexOf('\t') >= 0 && firstLine.indexOf(',') < 0 ? '\t' : ',';
+    const rows = [];
+    let row = [], cell = '', q = false;
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (q) {
+        if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') q = false;
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === sep) { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && src[i + 1] === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.some(function (c) { return c.trim() !== ''; })) rows.push(row);
+        row = [];
+      } else cell += ch;
+    }
+    row.push(cell);
+    if (row.some(function (c) { return c.trim() !== ''; })) rows.push(row);
+    return rows;
+  }
+
+  const CSV_COLUMNS = {
+    univ: ['대학', '대학명', '대학교'],
+    dept: ['학과', '모집단위', '학과명'],
+    track: ['구분', '문이과', '계열구분'],
+    field: ['계열'],
+    type: ['전형유형', '유형', '전형구분'],
+    admission: ['전형명', '전형'],
+    basis: ['반영', '반영교과', '산출방식'],
+    year: ['학년도', '연도'],
+    c50: ['50%컷', '50%', 'c50'],
+    c70: ['70%컷', '70%', 'c70'],
+    cf: ['추합컷', '추가합격컷', '최저', 'cf'],
+    avg: ['평균', 'avg'],
+    source: ['출처', 'source', 'url'],
+  };
+
+  /*
+   * CSV(대학어디가 등에서 정리한 표) → 입결 행 목록.
+   * 한 줄 = 대학·학과·전형유형·학년도 하나. 같은 대학·학과·전형유형은 한 행으로 합칩니다.
+   * 반환: { rows, errors }
+   */
+  function csvToRows(text) {
+    const table = parseCsv(text);
+    const errors = [];
+    if (table.length < 2) return { rows: [], errors: ['머리글 줄과 데이터 줄이 필요합니다.'] };
+    const head = table[0].map(function (h) { return h.trim().replace(/\s+/g, ''); });
+    const idx = {};
+    Object.keys(CSV_COLUMNS).forEach(function (k) {
+      idx[k] = head.findIndex(function (h) { return CSV_COLUMNS[k].indexOf(h) >= 0; });
+    });
+    ['univ', 'dept', 'type', 'year'].forEach(function (k) {
+      if (idx[k] < 0) errors.push('필수 열이 없습니다: ' + CSV_COLUMNS[k][0]);
+    });
+    if (errors.length) return { rows: [], errors: errors };
+    const map = {};
+    table.slice(1).forEach(function (r, i) {
+      const get = function (k) { return idx[k] >= 0 ? String(r[idx[k]] || '').trim() : ''; };
+      const univ = get('univ'), dept = get('dept'), year = get('year').replace(/[^0-9]/g, '');
+      let type = get('type');
+      if (type.indexOf('종합') >= 0) type = '종합'; else if (type.indexOf('교과') >= 0) type = '교과';
+      if (!univ || !dept || !year || (type !== '종합' && type !== '교과')) {
+        errors.push((i + 2) + '번째 줄: 대학·학과·전형유형(종합/교과)·학년도를 확인하세요.');
+        return;
+      }
+      const key = univ + '|' + dept + '|' + type;
+      if (!map[key]) {
+        map[key] = {
+          univ: univ, dept: dept, type: type,
+          track: get('track') || null, field: get('field') || null,
+          admission: get('admission') || null, basis: get('basis') || null,
+          cuts: {}, sources: [], imported: true,
+        };
+      }
+      const cut = {};
+      ['c50', 'c70', 'cf', 'avg'].forEach(function (k) {
+        const v = num(get(k));
+        cut[k] = Number.isFinite(v) ? v : null;
+      });
+      map[key].cuts[year] = cut;
+      const src = get('source');
+      if (src) map[key].sources.push({ year: year, url: src, kind: 'user' });
+    });
+    return { rows: Object.keys(map).map(function (k) { return map[k]; }), errors: errors };
+  }
+
   // 상위 P%에 들기 위한 최대 석차 (수강자 n명 기준)
   function rankForPercentile(P, n) {
     if (!(n > 0)) return null;
@@ -348,7 +459,7 @@
     percentileToGrade5: percentileToGrade5, band5: band5,
     convertSubject: convertSubject, buildProfile: buildProfile, project: project,
     groupAverage: groupAverage, aggregateCuts: aggregateCuts, compBonus: compBonus,
-    judge: judge, backtrack: backtrack, rankForPercentile: rankForPercentile, yearOf: yearOf,
+    pickRefs: pickRefs, judge: judge, parseCsv: parseCsv, csvToRows: csvToRows, backtrack: backtrack, rankForPercentile: rankForPercentile, yearOf: yearOf,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
