@@ -56,7 +56,7 @@ def csv_to_doc(path, warnings):
                 continue
             u = univs.setdefault(univ, {'univ': univ, 'departments': {}})
             d = u['departments'].setdefault(dept, {'dept': dept, 'track': rec.get('구분'), 'field': rec.get('계열'), 'entries': {}})
-            e = d['entries'].setdefault(t, {'type': t, 'admission': rec.get('전형명') or None,
+            e = d['entries'].setdefault((t, rec.get('전형명') or ''), {'type': t, 'admission': rec.get('전형명') or None,
                                              'basis': rec.get('반영') or None, 'cuts': {}, 'sources': []})
             if year:
                 e['cuts'][year] = {'c50': rec.get('50%컷'), 'c70': rec.get('70%컷'), 'cf': rec.get('추합컷'), 'avg': rec.get('평균')}

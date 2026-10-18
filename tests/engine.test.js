@@ -107,7 +107,7 @@ test('판정: 컷이 하나도 없으면 입결 없음', () => {
 test('CSV: 따옴표·학년도별 줄 합치기', () => {
   const csv = '대학,학과,구분,계열,전형유형,전형명,반영,학년도,50%컷,70%컷,추합컷,평균,출처\n' +
     '가나대학교,"경영학과",문과,경영·경제,학생부종합,"활동우수형, 서류",전과목,2026,2.1,2.4,,,https://a\n' +
-    '가나대학교,경영학과,문과,경영·경제,학생부종합,활동우수형,전과목,2025학년도,2.0,2.3,,,\n' +
+    '가나대학교,경영학과,문과,경영·경제,학생부종합,"활동우수형, 서류",전과목,2025학년도,2.0,2.3,,,\n' +
     '가나대학교,경영학과,문과,경영·경제,교과,지역균형,국영수사,2026,,1.8,,,\n' +
     ',빈줄,,,,,,,,,,,\n';
   const r = E.csvToRows(csv);
@@ -117,6 +117,14 @@ test('CSV: 따옴표·학년도별 줄 합치기', () => {
   assert.deepStrictEqual(Object.keys(jong.cuts).sort(), ['2025', '2026']);
   assert.strictEqual(jong.cuts['2026'].c70, 2.4);
   assert.strictEqual(r.errors.length, 1);
+});
+test('CSV: 같은 학과라도 전형명이 다르면 다른 행', () => {
+  const csv = '대학,학과,전형유형,전형명,학년도,70%컷\n' +
+    '가나대학교,경영학과,학생부종합,면접형,2026,2.4\n' +
+    '가나대학교,경영학과,학생부종합,서류형,2026,2.1\n';
+  const r = E.csvToRows(csv);
+  assert.strictEqual(r.rows.length, 2);
+  assert.deepStrictEqual(r.rows.map((x) => x.admission).sort(), ['서류형', '면접형'].sort());
 });
 test('CSV: 필수 열이 없으면 오류', () => {
   assert.ok(E.csvToRows('대학,학과\n가,나').errors.length > 0);

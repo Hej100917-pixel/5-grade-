@@ -25,11 +25,13 @@
   function saveImported() {
     try { window.localStorage.setItem(IMPORT_KEY, JSON.stringify({ rows: imported })); } catch (e) { /* 저장 불가 환경 */ }
   }
-  // 실제 입결 = 저장소 데이터 + 불러온 데이터 (같은 대학·학과면 불러온 쪽 우선)
+  // 같은 학과라도 전형(예: 면접형·서류형)이 다르면 다른 행
+  function rowKey(r) { return r.univ + '|' + r.dept + '|' + r.type + '|' + (r.admission || ''); }
+  // 실제 입결 = 저장소 데이터 + 불러온 데이터 (같은 대학·학과·전형이면 불러온 쪽 우선)
   function realRows(type) {
     const map = new Map();
-    ((DB[type] && DB[type].universities) || []).forEach(function (r) { map.set(r.univ + '|' + r.dept, r); });
-    imported.filter(function (r) { return r.type === type; }).forEach(function (r) { map.set(r.univ + '|' + r.dept, r); });
+    ((DB[type] && DB[type].universities) || []).forEach(function (r) { map.set(rowKey(r), r); });
+    imported.filter(function (r) { return r.type === type; }).forEach(function (r) { map.set(rowKey(r), r); });
     return Array.from(map.values());
   }
   function realCount() { return realRows('종합').length + realRows('교과').length; }
@@ -176,7 +178,7 @@
       const j = E.judge(my, cuts, { bonus: bonus.total, margin: E.num(state.margin) >= 0 ? E.num(state.margin) : 0.5 });
       return {
         u: u, cuts: cuts, my: my, bonus: bonus, verdict: j.verdict, adj: j.adj, diff70: j.diff70, refs: j.refs,
-        key: u.univ + '|' + u.dept + '|' + u.type, group: g, basisLabel: u.basis || '전과목*',
+        key: rowKey(u), group: g, basisLabel: u.basis || '전과목*',
       };
     });
     const order = { '안정': 0, '적정': 1, '상향': 2, '위험': 3, '성적 없음': 4, '입결 없음': 5 };
@@ -450,7 +452,7 @@
       if (f.track !== '전체' && r.u.track !== f.track) return false;
       if (f.field !== '전체' && r.u.field !== f.field) return false;
       if (f.hideEmpty && r.verdict === '입결 없음') return false;
-      if (q && (r.u.univ + ' ' + r.u.dept).indexOf(q) < 0) return false;
+      if (q && (r.u.univ + ' ' + r.u.dept + ' ' + (r.u.admission || '')).indexOf(q) < 0) return false;
       return true;
     });
   }
@@ -513,7 +515,7 @@
       const refTag = r.refs.refKind && r.refs.refKind !== '70%컷' ? '<span class="ref-mark">' + esc(r.refs.refKind) + ' 기준</span>' : '';
       return '<tr data-key="' + esc(r.key) + '" class="' + (r.key === state.selected ? 'sel' : '') + (r.verdict === '입결 없음' ? ' no-data' : '') + '" tabindex="0">' +
         '<td><span class="badge ' + verdictClass(r.verdict) + '">' + esc(r.verdict) + '</span></td>' +
-        '<td>' + esc(r.u.univ) + '</td><td>' + esc(r.u.dept) + '</td><td>' + esc(r.u.track || '–') + '</td><td>' + esc(r.u.field || '–') + '</td><td>' + esc(r.basisLabel) + '</td>' +
+        '<td>' + esc(r.u.univ) + '</td><td>' + esc(r.u.dept) + (r.u.admission ? '<br><small class="adm">' + esc(r.u.admission) + '</small>' : '') + '</td><td>' + esc(r.u.track || '–') + '</td><td>' + esc(r.u.field || '–') + '</td><td>' + esc(r.basisLabel) + '</td>' +
         cutCell(r, 'c50') + cutCell(r, 'c70') + cutCell(r, 'avg') + '<td class="n num">' + f2(r.cuts.cf) + '</td>' +
         '<td class="n num">' + f2(r.my) + '</td>' +
         '<td class="n num ' + dCls + '">' + dTxt + refTag + '</td>' +
@@ -846,8 +848,8 @@
         status.textContent = '불러온 행이 없습니다. ' + res.errors.slice(0, 3).join(' ');
         return;
       }
-      const keys = new Set(res.rows.map(function (r) { return r.univ + '|' + r.dept + '|' + r.type; }));
-      imported = imported.filter(function (r) { return !keys.has(r.univ + '|' + r.dept + '|' + r.type); }).concat(res.rows);
+      const keys = new Set(res.rows.map(rowKey));
+      imported = imported.filter(function (r) { return !keys.has(rowKey(r)); }).concat(res.rows);
       saveImported();
       state.dataset = '실제';
       status.textContent = res.rows.length + '개 모집단위를 불러왔습니다.' +
