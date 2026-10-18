@@ -79,8 +79,9 @@
    * 트랙 B: 원점수·평균·표준편차 → Z점수 → 정규분포 상위 비율, 5등급 구간 안으로 제한
    * 트랙 C: 5등급만 있음 → 해당 구간의 중간값 (신뢰도 낮음)
    */
-  function convertSubject(s) {
-    const out = { track: null, P: null, g9: null, g5calc: null, reliability: '', notes: [] };
+  function convertSubject(s, opts) {
+    const factor = opts && opts.factor > 0 ? opts.factor : 1;
+    const out = { track: null, P: null, g9: null, g5calc: null, reliability: '', notes: [], Praw: null, g9raw: null };
     if (s.absoluteOnly) {
       out.track = '성취도';
       out.reliability = '-';
@@ -121,13 +122,30 @@
       return out;
     }
 
-    out.g9 = percentileToGrade9(out.P);
+    out.Praw = out.P;
+    out.g9raw = percentileToGrade9(out.P);
     out.g5calc = percentileToGrade5(out.P);
     if (out.track === 'A' && hasG5 && out.g5calc !== g5) {
       out.notes.push('입력한 5등급(' + g5 + ')과 석차로 계산한 등급(' + out.g5calc + ')이 다름: 입력값 확인');
     }
+    // 학교 유형 보정: 일반고 기준 상위 % = 우리 학교 상위 % × 보정계수
+    if (factor !== 1) out.P = clamp(out.P * factor, 0.01, 100);
+    out.g9 = percentileToGrade9(out.P);
     return out;
   }
+
+  /*
+   * 자사고·특목고 성적을 일반고 기준으로 대략 바꾸는 보정계수 기본값.
+   * 학생 수준이 높은 학교의 상위 X%는 일반고에서 그보다 위(상위 X × 계수 %)에 해당한다고 보는
+   * 단순 가정이며, 실제 통계로 정한 값이 아닙니다. 화면에서 직접 바꿀 수 있습니다.
+   */
+  const SCHOOL_TYPES = {
+    '일반고': 1,
+    '자사고 (광역단위)': 0.75,
+    '자사고 (전국단위)': 0.55,
+    '외고·국제고': 0.6,
+    '과학고·영재고': 0.45,
+  };
 
   function yearOf(sem) { return Number(String(sem).charAt(0)) || 1; }
 
@@ -141,9 +159,9 @@
    * byCat: 교과별 학점 합·평균 등급·평균 수강자 수
    * pastSems / futureSems: 성적이 있는 학기와 그 이후 남은 학기
    */
-  function buildProfile(subjects) {
+  function buildProfile(subjects, opts) {
     const rows = (subjects || []).map(function (s) {
-      return Object.assign({}, s, { conv: convertSubject(s), credits: num(s.credits) || 0 });
+      return Object.assign({}, s, { conv: convertSubject(s, opts), credits: num(s.credits) || 0 });
     });
     const graded = rows.filter(function (s) { return s.conv.g9 !== null && s.credits > 0; });
 
@@ -453,7 +471,7 @@
   }
 
   const Engine = {
-    CUM9: CUM9, CUM5: CUM5, CATEGORIES: CATEGORIES, BASIS: BASIS, SEMESTERS: SEMESTERS,
+    CUM9: CUM9, CUM5: CUM5, CATEGORIES: CATEGORIES, BASIS: BASIS, SEMESTERS: SEMESTERS, SCHOOL_TYPES: SCHOOL_TYPES,
     clamp: clamp, num: num, round: round, normCdf: normCdf,
     percentileToGrade9: percentileToGrade9, grade9ToPercentile: grade9ToPercentile,
     percentileToGrade5: percentileToGrade5, band5: band5,

@@ -121,6 +121,18 @@ test('CSV: 따옴표·학년도별 줄 합치기', () => {
 test('CSV: 필수 열이 없으면 오류', () => {
   assert.ok(E.csvToRows('대학,학과\n가,나').errors.length > 0);
 });
+test('학교 유형 보정: 상위 20% × 0.5 → 일반고 상위 10%', () => {
+  const c = E.convertSubject({ rank: 40.5, total: 200 }, { factor: 0.5 });
+  near(c.Praw, 20);
+  near(c.P, 10);
+  near(c.g9, E.percentileToGrade9(10));
+  near(c.g9raw, E.percentileToGrade9(20));
+  assert.strictEqual(c.g5calc, 2); // 등급 일치 확인은 원래 백분위로
+});
+test('보정계수 1이면 변화 없음', () => {
+  const c = E.convertSubject({ rank: 13, total: 250 }, { factor: 1 });
+  near(c.P, c.Praw, 1e-12);
+});
 test('목표 석차 계산', () => {
   assert.strictEqual(E.rankForPercentile(4, 250), 10);
   assert.strictEqual(E.rankForPercentile(0.1, 100), 1);

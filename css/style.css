@@ -93,6 +93,13 @@ main.wrap { display: flex; flex-direction: column; gap: 28px; padding-block: 20p
 .sample-tag { font-size: 0.8rem; color: var(--up); background: var(--up-bg); padding: 2px 8px; border-radius: 999px; }
 .hint { margin: 0; color: var(--muted); font-size: 0.82rem; }
 
+/* 학교 유형 보정 */
+.school { display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.school.on { border-color: var(--up); }
+.school-controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.school .hint strong { color: var(--up); }
+.raw { display: block; font-size: 0.72rem; color: var(--muted); }
+
 /* 요약 */
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }

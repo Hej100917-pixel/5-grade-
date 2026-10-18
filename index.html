@@ -39,6 +39,18 @@
       <p class="step-desc">과목별 5등급, 석차, 수강자 수를 입력하면 9등급제 환산 등급을 바로 계산합니다. 석차가 없으면 원점수·평균·표준편차로 추정합니다.</p>
     </div>
 
+    <div class="school">
+      <div class="school-controls">
+        <label class="inline">학교 유형 <select id="schoolType"></select></label>
+        <label class="inline">보정계수 <input type="number" id="schoolFactor" min="0.2" max="1" step="0.05"></label>
+        <div class="seg" role="group" aria-label="보정 적용 전형">
+          <button type="button" id="scope-jong" data-scope="종합">학종에만 적용</button>
+          <button type="button" id="scope-all" data-scope="전체">학종·교과 모두</button>
+        </div>
+      </div>
+      <p class="hint" id="schoolHint"></p>
+    </div>
+
     <div class="summary" id="summary"></div>
 
     <div class="toolbar">
@@ -205,6 +217,7 @@
       <li><strong>트랙 B:</strong> Z = (원점수 − 평균) ÷ 표준편차로 정규분포 상위 비율을 구하고, 입력한 5등급 구간(10/34/66/90%) 안으로 제한합니다.</li>
       <li><strong>환산 등급:</strong> 상위 %를 9등급제 구간(4/11/23/40/60/77/89/96%)에 넣고 구간 안에서 비례 계산합니다. 상위 5.2%는 2 + (5.2 − 4) ÷ 7 = 2.17등급입니다.</li>
       <li><strong>판정:</strong> 안정은 50%컷 이내, 적정은 50~70%컷, 상향은 70%컷부터 70%컷 + 상향 범위(또는 추가합격 컷)까지, 그보다 낮으면 위험입니다. 70%컷이 공개되지 않은 대학은 평균, 그다음 50%컷을 기준선으로 쓰고 표에 표시합니다.</li>
+      <li><strong>학교 유형 보정:</strong> 자사고·특목고는 일반고 기준 상위 % = 우리 학교 상위 % × 보정계수로 대략 바꿉니다(기본값 광역 자사고 0.75, 전국 자사고 0.55, 외고·국제고 0.6, 과학고·영재고 0.45). 통계로 정한 값이 아닌 가정이며 직접 바꿀 수 있습니다.</li>
       <li><strong>종합 보정:</strong> 성적 상승세(최대 0.15)와 전공 관련 교과 우수도(최대 0.15)를 더해 최대 0.3등급까지 유리하게 봅니다. 교과전형에는 적용하지 않습니다.</li>
     </ul>
   </section>

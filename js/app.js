@@ -72,7 +72,17 @@
       sim: { scenario: 'A', rate: 15, targetP: 4, futureCredits: '', expectedN: '', yw: [1, 1, 1], custom: {} },
       margin: 0.5, filter: { verdict: '전체', field: '전체', q: '', univ: '전체', track: '전체', hideEmpty: false },
       selected: null, goal: 'c70', targetSem: '', dataset: '실제',
+      school: { type: '일반고', factor: 1, scope: '종합' },
     };
+  }
+
+  // 현재 화면(전형)에 학교 유형 보정을 적용할지와 그 계수
+  function schoolFactor() {
+    const s = state.school;
+    const f = E.num(s.factor);
+    if (!(f > 0) || f === 1) return 1;
+    if (s.scope !== '전체' && state.mode !== '종합') return 1;
+    return E.clamp(f, 0.2, 1);
   }
 
   function load() {
@@ -84,6 +94,7 @@
       return Object.assign(d, s, {
         sim: Object.assign(d.sim, s.sim || {}),
         filter: Object.assign(d.filter, s.filter || {}),
+        school: Object.assign(d.school, s.school || {}),
       });
     } catch (e) { return d; }
   }
@@ -117,7 +128,7 @@
 
   // ───────────── 계산 ─────────────
   function compute() {
-    const profile = E.buildProfile(state.subjects);
+    const profile = E.buildProfile(state.subjects, { factor: schoolFactor() });
     const sim = state.sim;
     const yw = sim.yw.map(function (v) { const n = E.num(v); return n >= 0 ? n : 1; });
     const base = {
@@ -220,8 +231,11 @@
       const r = byId[tr.getAttribute('data-id')];
       if (!r) return;
       const cv = r.conv;
-      tr.querySelector('[data-r="P"]').textContent = cv.P === null ? '–' : cv.P.toFixed(1) + '%';
-      tr.querySelector('[data-r="g9"]').innerHTML = cv.g9 === null ? '–' : '<span class="g9">' + cv.g9.toFixed(2) + '</span>';
+      const adj = cv.P !== null && Math.abs(cv.P - cv.Praw) > 1e-9;
+      tr.querySelector('[data-r="P"]').innerHTML = cv.P === null ? '–' : cv.P.toFixed(1) + '%' +
+        (adj ? '<span class="raw">학교 ' + cv.Praw.toFixed(1) + '%</span>' : '');
+      tr.querySelector('[data-r="g9"]').innerHTML = cv.g9 === null ? '–' : '<span class="g9">' + cv.g9.toFixed(2) + '</span>' +
+        (adj ? '<span class="raw">학교 ' + cv.g9raw.toFixed(2) + '</span>' : '');
       const warn = cv.notes.some(function (n) { return n.indexOf('다름') >= 0; });
       tr.querySelector('[data-r="why"]').innerHTML = cv.track
         ? '<span class="track">' + esc(cv.track === 'A' || cv.track === 'B' || cv.track === 'C' ? '트랙 ' + cv.track : cv.track) + '</span>' +
@@ -254,6 +268,34 @@
         '<span class="meta">' + (P === null ? '입력 없음' : '상위 약 ' + f1(P) + '% · 5등급제 ' + E.percentileToGrade5(P) + '등급') + '</span>' +
         proj + '</div>';
     }).join('');
+  }
+
+  function renderSchool() {
+    const s = state.school;
+    const f = E.num(s.factor);
+    const active = schoolFactor() !== 1;
+    const types = Object.keys(E.SCHOOL_TYPES).concat(['직접 입력']);
+    const sel = $('#schoolType');
+    if (document.activeElement !== sel) sel.innerHTML = types.map(function (t) { return opt(t, t, s.type); }).join('');
+    const fi = $('#schoolFactor');
+    if (document.activeElement !== fi) fi.value = s.factor;
+    const off = s.type === '일반고' || f === 1;
+    fi.disabled = s.type === '일반고';
+    document.querySelectorAll('[data-scope]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.scope === s.scope));
+      b.disabled = off;
+    });
+    $('.school').classList.toggle('on', active);
+    let msg;
+    if (off) {
+      msg = '일반고는 보정하지 않습니다. 자사고·특목고라면 학교 유형을 고르세요.';
+    } else {
+      const ex = (20 * f).toFixed(1);
+      msg = '우리 학교 상위 20%를 일반고 상위 ' + ex + '%로 보는 식으로 바꿉니다. 실제 통계가 아니라 대략적인 가정이고, 대학이 공식적으로 쓰는 방식도 아닙니다. ' +
+        '교과전형은 대학이 내신을 그대로 비교하므로 학종에만 적용하는 걸 권합니다. ' +
+        (active ? '<strong>지금 화면(학생부' + esc(state.mode) + ')에 일반고 환산을 적용 중입니다.</strong>' : '지금 화면(학생부' + esc(state.mode) + ')에는 적용하지 않습니다.');
+    }
+    $('#schoolHint').innerHTML = msg;
   }
 
   function renderRelated() {
@@ -574,6 +616,7 @@
     renderUnivs(c);
     renderDetail(c);
     renderNotice();
+    renderSchool();
     syncButtons();
     save();
   }
@@ -609,6 +652,21 @@
     he.checked = !!state.filter.hideEmpty;
     he.addEventListener('change', function () { state.filter.hideEmpty = he.checked; refresh(); });
     bindImporter();
+    $('#schoolType').addEventListener('change', function (e) {
+      state.school.type = e.target.value;
+      if (E.SCHOOL_TYPES[e.target.value] !== undefined) state.school.factor = E.SCHOOL_TYPES[e.target.value];
+      refresh();
+    });
+    $('#schoolFactor').addEventListener('input', function (e) {
+      const v = E.num(e.target.value);
+      if (!(v > 0)) return;
+      state.school.factor = E.clamp(v, 0.2, 1);
+      if (E.SCHOOL_TYPES[state.school.type] !== state.school.factor) state.school.type = '직접 입력';
+      refreshSoon();
+    });
+    document.querySelectorAll('[data-scope]').forEach(function (b) {
+      b.addEventListener('click', function () { state.school.scope = b.dataset.scope; refresh(); });
+    });
     const ff = $('#fieldFilter');
     ff.innerHTML = ['전체'].concat(FIELDS).map(function (f) { return opt(f, f, state.filter.field); }).join('');
     ff.addEventListener('change', function () { state.filter.field = ff.value; refresh(); });
