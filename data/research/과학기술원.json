@@ -1,0 +1,391 @@
+{
+ "universities": [
+  {
+   "univ": "한국과학기술원(KAIST)",
+   "notes": "모집단위는 무학과(새내기과정학부) 단일 모집(정원외 반도체시스템공학과는 반도체시스템인재전형으로 별도 모집). 수시 전형: 창의도전전형, 학교장추천전형(서류100%), 일반전형(단계별, 면접), 고른기회, 특기자, 반도체시스템인재전형 I·II. 학생부교과전형 없음(교과 entry 생략). 입학처(admission.kaist.ac.kr) '입학정보' 메뉴는 전형별 경쟁률·면접기출문제·입학관련서식뿐이며 합격자/등록자 내신 등급(50%·70%컷, 평균, 최저)은 공개하지 않음 → cuts 전부 null. 확인 페이지: https://admission.kaist.ac.kr/undergraduate/admission/rsub/2026 대학어디가(adiga.kr) '대학별 전형 평가기준 및 결과'(criteriaAndResultAjax.do) 2024~2027학년도 전체 목록(2024·2025: 199개교, 2026: 205개교, 2027: 202개교)을 2026-10-18 curl로 조회한 결과 4개 과학기술원(KAIST·GIST·DGIST·UNIST)은 어느 학년도에도 없음(과기정통부 소관으로 대교협 공시 대상이 아님). 참고(공식, 전형별 경쟁률 페이지 /undergraduate/admission/rsub/YYYY): 일반전형 2024 410명 내외 2,717명 6.62:1, 2025 410명 내외 2,878명 7.02:1, 2026 350명 내외 2,675명 7.64:1; 학교장추천전형 2024 95명 내외 914명 9.62:1, 2025 95명 내외 1,045명 11.00:1, 2026 85명 내외 1,313명 15.45:1; 창의도전전형 2024 220명 1,825명 8.29:1, 2025 220명 1,957명 8.90:1, 2026 200명 1,889명 9.45:1. 커뮤니티·학원 합격사례 등급은 출처 불확실하여 미기재.",
+   "departments": [
+    {
+     "dept": "무학과(일반전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "일반전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "무학과(학교장추천전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "학교장추천전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "무학과(창의도전전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "창의도전전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "univ": "광주과학기술원(GIST)",
+   "notes": "모집단위는 기초교육학부(무학과) 단일 모집(+반도체공학과 별도). 수시 전형: 일반전형, 학교장추천전형, 고른기회, 특기자 등 학생부종합 단계별 전형. 학생부교과전형 없음(교과 entry 생략). 입학처(www.gist.ac.kr/uadm) 메뉴(인재상·전형안내·모집요강·공지사항·FAQ·서식·입학설명회)에 입시결과 메뉴가 없고, 공지사항 게시판(총 8건)에도 경쟁률·합격자발표·모집요강·선행학습 영향평가 보고서만 있으며 합격자/등록자 내신 등급은 공개하지 않음 → cuts 전부 null. 확인 페이지: https://www.gist.ac.kr/uadm/html/sub03/0301.html 대학어디가(adiga.kr) '대학별 전형 평가기준 및 결과'(criteriaAndResultAjax.do) 2024~2027학년도 전체 목록(2024·2025: 199개교, 2026: 205개교, 2027: 202개교)을 2026-10-18 curl로 조회한 결과 4개 과학기술원(KAIST·GIST·DGIST·UNIST)은 어느 학년도에도 없음(과기정통부 소관으로 대교협 공시 대상이 아님). ",
+   "departments": [
+    {
+     "dept": "기초교육학부(일반전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "일반전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "기초교육학부(학교장추천전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "학교장추천전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "univ": "대구경북과학기술원(DGIST)",
+   "notes": "모집단위: 기초학부(무학과) 중심 + 반도체공학과, 2027학년도부터 AI대학(피지컬AI·메디컬AI·AI-X학과) 신설. 수시 전형: 일반전형, 학교장추천전형, 고른기회, 과학인재전형(모두 학생부종합 성격). 학생부교과전형 없음(교과 entry 생략). 입학처(www.dgist.ac.kr/adm) 메뉴(전형안내·프로그램·입학도우미: 공지사항, 입학자료 열람(모집요강), FAQ, Q&A, 자료실, 보도자료)에 입시결과 메뉴가 없음. 자료실(9건)은 서식·선행학습 영향평가 보고서뿐이고 공지사항(14건)도 일정·FAQ·시행계획·설명회 안내뿐이며 합격자/등록자 내신 등급은 공개하지 않음 → cuts 전부 null. 확인 페이지: https://www.dgist.ac.kr/bbs/BBSMSTR_000000000061/list.do , https://www.dgist.ac.kr/bbs/BBSMSTR_000000000057/list.do 대학어디가(adiga.kr) '대학별 전형 평가기준 및 결과'(criteriaAndResultAjax.do) 2024~2027학년도 전체 목록(2024·2025: 199개교, 2026: 205개교, 2027: 202개교)을 2026-10-18 curl로 조회한 결과 4개 과학기술원(KAIST·GIST·DGIST·UNIST)은 어느 학년도에도 없음(과기정통부 소관으로 대교협 공시 대상이 아님). (사이트 접속 시 curl TLS 연결이 간헐적으로 끊겨 재시도로 받음.)",
+   "departments": [
+    {
+     "dept": "기초학부(일반전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "일반전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "기초학부(학교장추천전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "학교장추천전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "univ": "울산과학기술원(UNIST)",
+   "notes": "UNIST는 과학기술원 중 유일하게 계열별 모집: 이공계열(무학과), 이공계열(반도체공학과), 경영계열. 경영계열은 지침상 문과 성격이나 요청에 따라 track을 '이과'로 둠(field는 경영·경제). 수시 전형: 일반전형, 탐구우수전형, 지역인재전형, 고른기회전형(모두 학생부종합). 학생부교과전형 없음(교과 entry 생략). 입학처(adm-u.unist.ac.kr) 게시판 '기타'(30건)에는 학년도별 '학부 신입생 모집 경쟁률' PDF와 선행학습 영향평가 결과 보고만 있고 합격자/등록자 내신 등급은 공개하지 않음 → cuts 전부 null. 확인 페이지: https://adm-u.unist.ac.kr/admission/community/etc.do 대학어디가(adiga.kr) '대학별 전형 평가기준 및 결과'(criteriaAndResultAjax.do) 2024~2027학년도 전체 목록(2024·2025: 199개교, 2026: 205개교, 2027: 202개교)을 2026-10-18 curl로 조회한 결과 4개 과학기술원(KAIST·GIST·DGIST·UNIST)은 어느 학년도에도 없음(과기정통부 소관으로 대교협 공시 대상이 아님). 참고(공식 경쟁률 PDF): 일반전형 이공(무학과)+이공(반도체) 2025 270+35명 4,855명 15.9:1, 2026 250+35명 5,704명 20.01:1; 일반전형 경영 2025 25명 377명 15.1:1, 2026 25명 483명 19.32:1; 탐구우수 2025 30명 7.8:1, 2026 50명 8.62:1; 지역인재 이공 2025 6.18:1, 2026 6.33:1. 2024학년도 경쟁률 게시물은 목록에 있으나 미확인.",
+   "departments": [
+    {
+     "dept": "이공계열 무학과(일반전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "일반전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "이공계열 반도체공학과(일반전형)",
+     "track": "이과",
+     "field": "공학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "일반전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "경영계열(일반전형)",
+     "track": "이과",
+     "field": "경영·경제",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "일반전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    },
+    {
+     "dept": "이공계열 무학과(지역인재전형)",
+     "track": "이과",
+     "field": "자연과학",
+     "entries": [
+      {
+       "type": "종합",
+       "admission": "지역인재전형",
+       "basis": null,
+       "cuts": {
+        "2026": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2025": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        },
+        "2024": {
+         "c50": null,
+         "c70": null,
+         "cf": null,
+         "avg": null
+        }
+       },
+       "sources": []
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

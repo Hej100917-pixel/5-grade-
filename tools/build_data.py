@@ -166,7 +166,8 @@ def write_csv(t, rows):
 
 def apply_overrides(rows, notes, warnings):
     """data/research/overrides.json: 원문 오류로 보이는 값 제외(drop)나 항목 보정(set).
-    [{"univ", "dept"(선택), "type"("종합"|"교과"|"*"), "year"(drop에 필요), "drop": ["c70"], "set": {...}, "reason"}]
+    [{"univ", "dept"(선택), "type"("종합"|"교과"|"*"), "admission"(선택), "year"(drop에 필요),
+      "drop": ["c70"], "set": {...}, "reason"}]
     모든 보정은 사유와 함께 대학 notes에 남깁니다."""
     path = os.path.join(ROOT, 'data', 'research', 'overrides.json')
     if not os.path.exists(path):
@@ -179,7 +180,8 @@ def apply_overrides(rows, notes, warnings):
             if rule.get('type', '*') not in ('*', t):
                 continue
             for r in rows[t]:
-                if r['univ'] != rule['univ'] or rule.get('dept') not in (None, r['dept']):
+                if r['univ'] != rule['univ'] or rule.get('dept') not in (None, r['dept']) \
+                        or rule.get('admission') not in (None, r['admission']):
                     continue
                 if rule.get('drop'):
                     c = r['cuts'].get(str(rule.get('year')))
@@ -199,24 +201,10 @@ def apply_overrides(rows, notes, warnings):
         notes[rule['univ']] = f'{notes[rule["univ"]]} / {memo}' if notes.get(rule['univ']) else memo
 
 
-def split_duplicates(rows):
-    """같은 대학·학과·전형유형에 전형이 둘 이상이면(예: 서울대 일반전형·지역균형전형) 학과명에 전형명을 붙여 구분합니다."""
-    for t in TYPES:
-        seen = {}
-        for r in rows[t]:
-            seen.setdefault((r['univ'], r['dept']), []).append(r)
-        for group in seen.values():
-            if len(group) > 1:
-                for i, r in enumerate(group):
-                    short = (r['admission'] or '').split('(')[0].strip() or f'전형 {i + 1}'
-                    r['dept'] = f'{r["dept"]} ({short})'
-
-
 def main():
     warnings = []
     rows, notes = load_rows(warnings)
     apply_overrides(rows, notes, warnings)
-    split_duplicates(rows)
     for t in TYPES:
         u, n, d = write_js(t, rows[t], notes)
         write_csv(t, rows[t])
