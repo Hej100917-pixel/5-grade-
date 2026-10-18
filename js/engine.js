@@ -350,7 +350,10 @@
     if (r.ref === null) return { verdict: '입결 없음', adj: null, diff70: null, refs: r };
     if (my === null) return { verdict: '성적 없음', adj: null, diff70: null, refs: r };
     const adj = my - bonus;
-    const upper = Math.max(r.ref + margin, cuts.cf !== null && cuts.cf !== undefined ? cuts.cf : -Infinity);
+    // cf는 대학에 따라 추가합격 마감이 아니라 '등록자 최저'라 이상치가 섞입니다.
+    // 상향 범위를 넓히는 데는 기준선 + 1.0등급까지만 씁니다.
+    const cf = cuts.cf !== null && cuts.cf !== undefined ? Math.min(cuts.cf, r.ref + 1.0) : -Infinity;
+    const upper = Math.max(r.ref + margin, cf);
     let verdict;
     if (adj <= r.safe) verdict = '안정';
     else if (adj <= r.ref) verdict = '적정';

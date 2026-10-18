@@ -101,6 +101,11 @@ test('판정: 평균만 공개된 경우 평균을 기준선으로', () => {
   assert.strictEqual(j.verdict, '상향');
   assert.strictEqual(E.judge(1.7, { c50: null, c70: null, cf: null, avg: 2.0 }).verdict, '안정');
 });
+test('판정: 등록자 최저 이상치는 상향 범위를 기준선 + 1.0까지만 넓힘', () => {
+  const cuts = { c50: null, c70: null, cf: 6.06, avg: 2.5 };
+  assert.strictEqual(E.judge(3.4, cuts).verdict, '상향');
+  assert.strictEqual(E.judge(3.6, cuts).verdict, '위험');
+});
 test('판정: 컷이 하나도 없으면 입결 없음', () => {
   assert.strictEqual(E.judge(2.0, { c50: null, c70: null, cf: null, avg: null }).verdict, '입결 없음');
 });

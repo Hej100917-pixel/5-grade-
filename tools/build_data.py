@@ -75,6 +75,8 @@ def load_rows(warnings):
     paths = sorted(glob.glob(os.path.join(ROOT, 'data', 'research', '*.json')) +
                    glob.glob(os.path.join(ROOT, 'data', 'research', '*.csv')))
     for path in paths:
+        if os.path.basename(path) == 'overrides.json':
+            continue
         if path.endswith('.csv'):
             doc = csv_to_doc(path, warnings)
             for u in doc['universities']:
@@ -162,9 +164,59 @@ def write_csv(t, rows):
                             *['' if c.get(k) is None else c[k] for k in ('c50', 'c70', 'cf', 'avg')], src])
 
 
+def apply_overrides(rows, notes, warnings):
+    """data/research/overrides.json: 원문 오류로 보이는 값 제외(drop)나 항목 보정(set).
+    [{"univ", "dept"(선택), "type"("종합"|"교과"|"*"), "year"(drop에 필요), "drop": ["c70"], "set": {...}, "reason"}]
+    모든 보정은 사유와 함께 대학 notes에 남깁니다."""
+    path = os.path.join(ROOT, 'data', 'research', 'overrides.json')
+    if not os.path.exists(path):
+        return
+    with open(path, encoding='utf-8') as f:
+        rules = json.load(f)
+    for rule in rules:
+        hit = 0
+        for t in TYPES:
+            if rule.get('type', '*') not in ('*', t):
+                continue
+            for r in rows[t]:
+                if r['univ'] != rule['univ'] or rule.get('dept') not in (None, r['dept']):
+                    continue
+                if rule.get('drop'):
+                    c = r['cuts'].get(str(rule.get('year')))
+                    if not c:
+                        continue
+                    for k in rule['drop']:
+                        c[k] = None
+                    if not any(v is not None for v in c.values()):
+                        del r['cuts'][str(rule['year'])]
+                for k, v in (rule.get('set') or {}).items():
+                    r[k] = v
+                hit += 1
+        if not hit:
+            warnings.append(f'보정 규칙이 맞는 항목이 없음: {rule}')
+            continue
+        memo = f'[보정] {rule.get("dept") or "전체"} {rule.get("type", "*")} {rule.get("year", "")}: {rule["reason"]}'
+        notes[rule['univ']] = f'{notes[rule["univ"]]} / {memo}' if notes.get(rule['univ']) else memo
+
+
+def split_duplicates(rows):
+    """같은 대학·학과·전형유형에 전형이 둘 이상이면(예: 서울대 일반전형·지역균형전형) 학과명에 전형명을 붙여 구분합니다."""
+    for t in TYPES:
+        seen = {}
+        for r in rows[t]:
+            seen.setdefault((r['univ'], r['dept']), []).append(r)
+        for group in seen.values():
+            if len(group) > 1:
+                for i, r in enumerate(group):
+                    short = (r['admission'] or '').split('(')[0].strip() or f'전형 {i + 1}'
+                    r['dept'] = f'{r["dept"]} ({short})'
+
+
 def main():
     warnings = []
     rows, notes = load_rows(warnings)
+    apply_overrides(rows, notes, warnings)
+    split_duplicates(rows)
     for t in TYPES:
         u, n, d = write_js(t, rows[t], notes)
         write_csv(t, rows[t])
